@@ -1,68 +1,98 @@
-cat > client/src/components/AuthScreen.jsx << 'EOF'
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { useWebSocket } from '../hooks/useWebSocket';
 
-const AuthScreen = ({ setRole, socket }) => {
-  const [mode, setMode] = useState('select');
+export default function AuthScreen({ onAuthComplete }) {
+  const [showPassword, setShowPassword] = useState(false);
   const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
-  const navigate = useNavigate();
+  const [isLoading, setIsLoading] = useState(false);
+  const { authenticate, role } = useWebSocket();
 
-  const handleAdminSubmit = (e) => {
-    e.preventDefault();
-    
-    // التحقق المباشر من الباسورد فقط
-    if (password === '1234') {
-      console.log("Admin Login Success");
-      setRole('admin');
-      localStorage.setItem('dw_role', 'admin');
-      
-      // إرسال إشعار للسيرفر فقط للمعلومة (بدون انتظار رد)
-      if(socket) socket.emit('request_admin', { password: '1234' });
-      
-      navigate('/home');
+  // If role is set successfully, call onAuthComplete
+  useEffect(() => {
+    if (role === 'admin' || role === 'viewer') {
+      onAuthComplete();
+    }
+  }, [role, onAuthComplete]);
+
+  const handleAdminLogin = () => {
+    if (password) {
+      setIsLoading(true);
+      authenticate('admin', password);
+      setTimeout(() => setIsLoading(false), 1000);
     } else {
-      setError('كلمة المرور خطأ!');
+      setShowPassword(true);
     }
   };
 
-  const handleViewerEnter = () => {
-    setRole('viewer');
-    localStorage.setItem('dw_role', 'viewer');
-    navigate('/home');
+  const handleWatchMode = () => {
+    setIsLoading(true);
+    authenticate('viewer');
+    setTimeout(() => setIsLoading(false), 1000);
+  };
+
+  const handleKeyPress = (e) => {
+    if (e.key === 'Enter' && password) {
+      handleAdminLogin();
+    }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-900 text-white p-4">
-      <div className="bg-gray-800 p-8 rounded-lg shadow-xl max-w-sm w-full">
-        <h2 className="text-2xl font-bold mb-6 text-center text-blue-400">Watch Party</h2>
+    <div className="auth-container">
+      <div className="auth-card">
+        <h1>🎬 Watch Party</h1>
+        <p>Watch content together in real-time</p>
         
-        {mode === 'select' ? (
-          <div className="space-y-4">
-            <button onClick={() => setMode('admin')} className="w-full bg-red-600 py-3 rounded font-bold hover:bg-red-700">Admin Mode</button>
-            <button onClick={handleViewerEnter} className="w-full bg-gray-600 py-3 rounded font-bold hover:bg-gray-500">Viewer Mode</button>
-          </div>
-        ) : (
-          <form onSubmit={handleAdminSubmit} className="space-y-4">
-            <input 
-              type="password" 
-              value={password} 
-              onChange={(e) => setPassword(e.target.value)} 
-              placeholder="Password (1234)" 
-              className="w-full p-3 rounded bg-gray-700 border border-gray-600 text-white focus:outline-none focus:border-blue-500"
-              autoFocus
-            />
-            {error && <p className="text-red-400 text-sm text-center">{error}</p>}
-            <div className="flex gap-2">
-              <button type="button" onClick={() => setMode('select')} className="flex-1 py-2 bg-gray-600 rounded">Back</button>
-              <button type="submit" className="flex-1 py-2 bg-green-600 rounded font-bold">Login</button>
-            </div>
-          </form>
-        )}
+        <div className="auth-buttons">
+          {!showPassword ? (
+            <>
+              <button 
+                className="btn btn-primary" 
+                onClick={handleAdminLogin}
+                disabled={isLoading}
+              >
+                {isLoading ? '⏳ Connecting...' : '👑 Admin Login'}
+              </button>
+              <button 
+                className="btn btn-secondary" 
+                onClick={handleWatchMode}
+                disabled={isLoading}
+              >
+                {isLoading ? '⏳ Connecting...' : '👁️ Watching Mode'}
+              </button>
+            </>
+          ) : (
+            <>
+              <input
+                type="password"
+                className="password-input"
+                placeholder="Enter admin password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                onKeyPress={handleKeyPress}
+                autoFocus
+              />
+              <button 
+                className="btn btn-primary" 
+                onClick={handleAdminLogin}
+                disabled={isLoading}
+              >
+                {isLoading ? '⏳ Verifying...' : 'Login as Admin'}
+              </button>
+              <button 
+                className="btn btn-secondary" 
+                onClick={() => setShowPassword(false)}
+                disabled={isLoading}
+              >
+                Back
+              </button>
+            </>
+          )}
+        </div>
+        
+        <div style={{ marginTop: '20px', fontSize: '12px', opacity: 0.6 }}>
+          Admin password: 1234
+        </div>
       </div>
     </div>
   );
-};
-
-export default AuthScreen;
-EOF
+}

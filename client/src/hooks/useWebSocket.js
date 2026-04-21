@@ -33,11 +33,23 @@ export function useWebSocket() {
           }
         } else if (data.type === 'role_accepted') {
           setRole(data.role);
+          // Clear any stored role on successful auth
+          if (data.role === 'admin') {
+            localStorage.setItem('watchPartyRole', 'admin');
+          } else {
+            localStorage.setItem('watchPartyRole', 'viewer');
+          }
         } else if (data.type === 'role_revoked') {
           setRole(null);
-          alert('Your admin role has been revoked');
+          localStorage.removeItem('watchPartyRole');
+          // Show message to user
+          const message = data.reason || 'Your admin role has been revoked by a new admin';
+          alert(message);
+          // Reload the page to reset state
+          window.location.reload();
         } else if (data.type === 'auth_failed') {
-          alert('Invalid password!');
+          alert(data.message || 'Invalid password!');
+          setRole(null);
         }
       } catch (error) {
         console.error('Error parsing message:', error);
