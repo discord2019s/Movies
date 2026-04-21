@@ -15,6 +15,9 @@ export function useWebSocket() {
 
   useEffect(() => {
     const websocket = new WebSocket(WS_URL);
+    
+    // Store for global access
+    window.wsConnection = websocket;
 
     websocket.onopen = () => {
       console.log('Connected to server');
@@ -33,23 +36,12 @@ export function useWebSocket() {
           }
         } else if (data.type === 'role_accepted') {
           setRole(data.role);
-          // Clear any stored role on successful auth
-          if (data.role === 'admin') {
-            localStorage.setItem('watchPartyRole', 'admin');
-          } else {
-            localStorage.setItem('watchPartyRole', 'viewer');
-          }
         } else if (data.type === 'role_revoked') {
           setRole(null);
-          localStorage.removeItem('watchPartyRole');
-          // Show message to user
-          const message = data.reason || 'Your admin role has been revoked by a new admin';
-          alert(message);
-          // Reload the page to reset state
+          alert(data.reason || 'Your admin role has been revoked');
           window.location.reload();
         } else if (data.type === 'auth_failed') {
           alert(data.message || 'Invalid password!');
-          setRole(null);
         }
       } catch (error) {
         console.error('Error parsing message:', error);
@@ -83,15 +75,6 @@ export function useWebSocket() {
     }
   };
 
-  const sendAction = (actionData) => {
-    if (ws && ws.readyState === WebSocket.OPEN && role === 'admin') {
-      ws.send(JSON.stringify({
-        type: 'action',
-        payload: actionData
-      }));
-    }
-  };
-
   const navigate = (page, url = null) => {
     if (ws && ws.readyState === WebSocket.OPEN && role === 'admin') {
       ws.send(JSON.stringify({
@@ -102,11 +85,17 @@ export function useWebSocket() {
     }
   };
 
-  const sendVideoControl = (state) => {
+  // New: Send DOM events from admin to server
+  const sendDomEvent = (eventData) => {
     if (ws && ws.readyState === WebSocket.OPEN && role === 'admin') {
       ws.send(JSON.stringify({
-        type: 'video_control',
-        state: state
+        type: 'dom_event',
+        eventType: eventData.eventType,
+        target: eventData.target,
+        value: eventData.value,
+        scrollX: eventData.scrollX,
+        scrollY: eventData.scrollY,
+        url: eventData.url
       }));
     }
   };
@@ -116,8 +105,7 @@ export function useWebSocket() {
     role,
     currentState,
     authenticate,
-    sendAction,
     navigate,
-    sendVideoControl,
+    sendDomEvent,
   };
 }

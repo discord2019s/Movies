@@ -1,12 +1,165 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Discord Watch Party</title>
-</head>
-<body>
-  <div id="root"></div>
-  <script type="module" src="/src/main.jsx"></script>
-</body>
-</html>
+const express = require('express');
+const http = require('http');
+const WebSocket = require('ws');
+const cors = require('cors');
+const path = require('path');
+
+const app = express();
+const server = http.createServer(app);
+const wss = new WebSocket.Server({ server });
+
+app.use(cors());
+app.use(express.json());
+
+// Serve static files from client build
+app.use(express.static(path.join(__dirname, '../client/dist')));
+
+// Store connected clients
+const clients = new Set();
+let adminClient = null;
+let currentState = {
+  role: null,
+  currentPage: 'home',
+  url: null,
+  iframeSrc: null,
+  // New: Store DOM mutations and events
+  domSnapshot: null,
+  pendingEvents: [],
+  lastScroll: { x: 0, y: 0 },
+  lastUrl: null
+};
+
+// Broadcast state to all viewers
+function broadcastState() {
+  const message = JSON.stringify({
+    type: 'state_update',
+    payload: currentState
+  });
+  
+  clients.forEach(client => {
+    if (client.readyState === WebSocket.OPEN && client !== adminClient) {
+      client.send(message);
+    }
+  });
+  
+  if (adminClient && adminClient.readyState === WebSocket.OPEN) {
+    adminClient.send(message);
+  }
+}
+
+// Broadcast events to viewers only
+function broadcastEvent(eventData) {
+  const message = JSON.stringify({
+    type: 'event',
+    payload: eventData
+  });
+  
+  clients.forEach(client => {
+    if (client.readyState === WebSocket.OPEN) {
+      client.send(message);
+    }
+  });
+}
+
+wss.on('connection', (ws) => {
+  console.log('New client connected');
+  
+  ws.send(JSON.stringify({
+    type: 'state_update',
+    payload: currentState
+  }));
+  
+  ws.on('message', (message) => {
+    try {
+      const data = JSON.parse(message);
+      
+      switch (data.type) {
+        case 'set_role':
+          if (data.role === 'admin' && data.password === '1234') {
+            if (adminClient && adminClient !== ws && adminClient.readyState === WebSocket.OPEN) {
+              adminClient.send(JSON.stringify({ type: 'role_revoked', reason: 'New admin connected' }));
+              setTimeout(() => {
+                if (adminClient && adminClient.readyState === WebSocket.OPEN) {
+                  adminClient.close();
+                }
+              }, 100);
+            }
+            adminClient = ws;
+            currentState.role = 'admin';
+            currentState.currentPage = 'home';
+            currentState.iframeSrc = null;
+            broadcastState();
+            ws.send(JSON.stringify({ type: 'role_accepted', role: 'admin' }));
+            console.log('✅ Admin authenticated');
+          } else if (data.role === 'viewer') {
+            clients.add(ws);
+            ws.send(JSON.stringify({ type: 'role_accepted', role: 'viewer' }));
+            console.log('👁️ Viewer connected');
+          } else if (data.role === 'admin' && data.password !== '1234') {
+            ws.send(JSON.stringify({ type: 'auth_failed', message: 'Invalid password' }));
+          }
+          break;
+          
+        case 'navigate':
+          if (ws === adminClient) {
+            currentState.currentPage = data.page;
+            currentState.iframeSrc = data.url;
+            currentState.lastUrl = data.url;
+            broadcastState();
+            console.log('📍 Admin navigated to:', data.url);
+          }
+          break;
+          
+        case 'dom_event':
+          // Forward DOM events from admin to viewers
+          if (ws === adminClient) {
+            broadcastEvent({
+              type: data.eventType,
+              target: data.target,
+              value: data.value,
+              scrollX: data.scrollX,
+              scrollY: data.scrollY,
+              url: data.url,
+              timestamp: Date.now()
+            });
+          }
+          break;
+          
+        case 'dom_snapshot':
+          // Forward DOM snapshot for initial sync
+          if (ws === adminClient) {
+            currentState.domSnapshot = data.snapshot;
+            broadcastState();
+          }
+          break;
+      }
+    } catch (error) {
+      console.error('Error processing message:', error);
+    }
+  });
+  
+  ws.on('close', () => {
+    if (ws === adminClient) {
+      adminClient = null;
+      currentState.role = null;
+      currentState.currentPage = 'home';
+      currentState.iframeSrc = null;
+      broadcastState();
+      console.log('Admin disconnected');
+    } else {
+      clients.delete(ws);
+      console.log('Viewer disconnected');
+    }
+  });
+});
+
+app.get('*', (req, res) => {
+  res.sendFile(path.join(__dirname, '../client/dist/index.html'));
+});
+
+const PORT = process.env.PORT || 3000;
+server.listen(PORT, () => {
+  console.log(`\n🚀 Server running on port ${PORT}`);
+  console.log(`🔌 WebSocket server ready`);
+  console.log(`🔑 Admin password: 1234\n`);
+});
