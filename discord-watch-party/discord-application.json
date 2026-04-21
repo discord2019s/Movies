@@ -1,0 +1,29 @@
+{
+  "name": "discord-watch-party-activity",
+  "description": "Real-time shared watching platform for Discord Activities",
+  "long_description": "Watch movies and shows together with friends in perfect synchronization. One person controls, everyone watches!",
+  "url": "https://your-deployed-app.com",
+  "redirect_uris": [
+    "https://your-deployed-app.com/callback"
+  ],
+  "bot": {
+    "public": false,
+    "authorize_url": null
+  },
+  "oauth2": {
+    "redirect_uris": [
+      "https://your-deployed-app.com/callback"
+    ],
+    "grant_types": [
+      "authorization_code",
+      "client_credentials"
+    ],
+    "response_types": [
+      "code"
+    ],
+    "scopes": [
+      "identify",
+      "email"
+    ]
+  }
+}
