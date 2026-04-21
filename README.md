@@ -18,6 +18,7 @@ A web application designed for Discord Activities that allows multiple users to 
 ### Viewer Features
 - Watch-only mode (no interaction allowed)
 - Real-time synchronization with admin
+
 - See exactly what admin sees instantly
 - Ultra-low latency updates
 
