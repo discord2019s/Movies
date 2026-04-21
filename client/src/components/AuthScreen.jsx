@@ -1,27 +1,28 @@
+cat > client/src/components/AuthScreen.jsx << 'EOF'
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 const AuthScreen = ({ setRole, socket }) => {
-  const [mode, setMode] = useState('select'); // select, admin-login, viewer
+  const [mode, setMode] = useState('select');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const navigate = useNavigate();
 
   const handleAdminSubmit = (e) => {
     e.preventDefault();
-    setError('');
-
+    
+    // التحقق المباشر من الباسورد فقط
     if (password === '1234') {
-      // نرسل طلب للسيرفر للتأكد (اختياري لكن أفضل للمزامنة)
-      if (socket) {
-        socket.emit('authenticate', { role: 'admin', password: '1234' });
-      }
-      
+      console.log("Admin Login Success");
       setRole('admin');
       localStorage.setItem('dw_role', 'admin');
+      
+      // إرسال إشعار للسيرفر فقط للمعلومة (بدون انتظار رد)
+      if(socket) socket.emit('request_admin', { password: '1234' });
+      
       navigate('/home');
     } else {
-      setError('كلمة المرور خاطئة! حاول مرة أخرى.');
+      setError('كلمة المرور خطأ!');
     }
   };
 
@@ -33,68 +34,35 @@ const AuthScreen = ({ setRole, socket }) => {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-900 text-white p-4">
-      <div className="bg-gray-800 p-8 rounded-lg shadow-2xl max-w-md w-full border border-gray-700">
-        <h1 className="text-3xl font-bold text-center mb-6 text-blue-400">Watch Party</h1>
+      <div className="bg-gray-800 p-8 rounded-lg shadow-xl max-w-sm w-full">
+        <h2 className="text-2xl font-bold mb-6 text-center text-blue-400">Watch Party</h2>
         
-        {mode === 'select' && (
+        {mode === 'select' ? (
           <div className="space-y-4">
-            <button
-              onClick={() => setMode('admin-login')}
-              className="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-3 px-4 rounded transition duration-200"
-            >
-              👑 Admin (Controller)
-            </button>
-            <button
-              onClick={handleViewerEnter}
-              className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded transition duration-200"
-            >
-              👁️ Watch Only (Viewer)
-            </button>
+            <button onClick={() => setMode('admin')} className="w-full bg-red-600 py-3 rounded font-bold hover:bg-red-700">Admin Mode</button>
+            <button onClick={handleViewerEnter} className="w-full bg-gray-600 py-3 rounded font-bold hover:bg-gray-500">Viewer Mode</button>
           </div>
-        )}
-
-        {mode === 'admin-login' && (
+        ) : (
           <form onSubmit={handleAdminSubmit} className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium mb-1">Admin Password</label>
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="w-full p-3 rounded bg-gray-700 border border-gray-600 focus:border-blue-500 focus:outline-none text-white"
-                placeholder="Enter password"
-                autoFocus
-              />
-            </div>
-            
-            {error && (
-              <p className="text-red-400 text-sm text-center bg-red-900/30 p-2 rounded">{error}</p>
-            )}
-
-            <div className="flex space-x-2">
-              <button
-                type="button"
-                onClick={() => { setMode('select'); setError(''); }}
-                className="flex-1 bg-gray-600 hover:bg-gray-500 py-2 rounded"
-              >
-                Back
-              </button>
-              <button
-                type="submit"
-                className="flex-1 bg-green-600 hover:bg-green-500 font-bold py-2 rounded"
-              >
-                Login
-              </button>
+            <input 
+              type="password" 
+              value={password} 
+              onChange={(e) => setPassword(e.target.value)} 
+              placeholder="Password (1234)" 
+              className="w-full p-3 rounded bg-gray-700 border border-gray-600 text-white focus:outline-none focus:border-blue-500"
+              autoFocus
+            />
+            {error && <p className="text-red-400 text-sm text-center">{error}</p>}
+            <div className="flex gap-2">
+              <button type="button" onClick={() => setMode('select')} className="flex-1 py-2 bg-gray-600 rounded">Back</button>
+              <button type="submit" className="flex-1 py-2 bg-green-600 rounded font-bold">Login</button>
             </div>
           </form>
         )}
-        
-        <div className="mt-6 text-center text-xs text-gray-500">
-          <p>Discord Watch Activity</p>
-        </div>
       </div>
     </div>
   );
 };
 
 export default AuthScreen;
+EOF
