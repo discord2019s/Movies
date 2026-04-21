@@ -22,7 +22,6 @@ let currentState = {
   currentPage: 'home',
   url: null,
   iframeSrc: null,
-  // New: Store DOM mutations and events
   domSnapshot: null,
   pendingEvents: [],
   lastScroll: { x: 0, y: 0 },
@@ -111,7 +110,6 @@ wss.on('connection', (ws) => {
           break;
           
         case 'dom_event':
-          // Forward DOM events from admin to viewers
           if (ws === adminClient) {
             broadcastEvent({
               type: data.eventType,
@@ -126,7 +124,6 @@ wss.on('connection', (ws) => {
           break;
           
         case 'dom_snapshot':
-          // Forward DOM snapshot for initial sync
           if (ws === adminClient) {
             currentState.domSnapshot = data.snapshot;
             broadcastState();

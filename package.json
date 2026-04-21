@@ -10,17 +10,29 @@
     "start": "NODE_ENV=production node server/index.js"
   },
   "dependencies": {
-    "express": "^4.18.2",
-    "ws": "^8.14.2",
-    "cors": "^2.8.5",
-    "dotenv": "^16.3.1"
+    "cors": "^2.8.6",
+    "dotenv": "^16.6.1",
+    "express": "^4.22.1",
+    "ws": "^8.20.0"
   },
   "devDependencies": {
-    "@vitejs/plugin-react": "^4.2.0",
+    "@vitejs/plugin-react": "^4.7.0",
     "concurrently": "^8.2.2",
-    "react": "^18.2.0",
-    "react-dom": "^18.2.0",
-    "vite": "^5.0.8"
-  }
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "vite": "^5.4.21"
+  },
+  "main": "index.js",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/discord2019s/Movies.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/discord2019s/Movies/issues"
+  },
+  "homepage": "https://github.com/discord2019s/Movies#readme"
 }
-
