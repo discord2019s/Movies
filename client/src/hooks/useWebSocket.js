@@ -15,12 +15,9 @@ export function useWebSocket() {
 
   useEffect(() => {
     const websocket = new WebSocket(WS_URL);
-    
-    // Store for global access
-    window.wsConnection = websocket;
 
     websocket.onopen = () => {
-      console.log('✅ Connected to server');
+      console.log('Connected to server');
       setConnected(true);
       setWs(websocket);
     };
@@ -28,7 +25,6 @@ export function useWebSocket() {
     websocket.onmessage = (event) => {
       try {
         const data = JSON.parse(event.data);
-        console.log('📨 Received:', data.type);
         
         if (data.type === 'state_update') {
           setCurrentState(data.payload);
@@ -37,27 +33,22 @@ export function useWebSocket() {
           }
         } else if (data.type === 'role_accepted') {
           setRole(data.role);
-          console.log('🎭 Role accepted:', data.role);
         } else if (data.type === 'role_revoked') {
           setRole(null);
-          alert(data.reason || 'Your admin role has been revoked');
+          alert('Your admin role has been revoked');
           window.location.reload();
         } else if (data.type === 'auth_failed') {
-          alert(data.message || 'Invalid password!');
+          alert('Invalid password!');
         }
       } catch (error) {
-        console.error('Error parsing message:', error);
+        console.error('Error:', error);
       }
     };
 
     websocket.onclose = () => {
-      console.log('❌ Disconnected from server');
+      console.log('Disconnected');
       setConnected(false);
       setWs(null);
-    };
-
-    websocket.onerror = (error) => {
-      console.error('WebSocket error:', error);
     };
 
     return () => {
@@ -69,7 +60,6 @@ export function useWebSocket() {
 
   const authenticate = (roleType, password = null) => {
     if (ws && ws.readyState === WebSocket.OPEN) {
-      console.log('🔐 Authenticating as:', roleType);
       ws.send(JSON.stringify({
         type: 'set_role',
         role: roleType,
@@ -80,28 +70,10 @@ export function useWebSocket() {
 
   const navigate = (page, url = null) => {
     if (ws && ws.readyState === WebSocket.OPEN && role === 'admin') {
-      console.log('🧭 Navigating to:', url);
       ws.send(JSON.stringify({
         type: 'navigate',
         page: page,
         url: url
-      }));
-    }
-  };
-
-  const sendDomEvent = (eventData) => {
-    if (ws && ws.readyState === WebSocket.OPEN && role === 'admin') {
-      console.log('📤 Sending DOM event:', eventData.eventType);
-      ws.send(JSON.stringify({
-        type: 'dom_event',
-        eventType: eventData.eventType,
-        target: eventData.target,
-        value: eventData.value,
-        scrollX: eventData.scrollX,
-        scrollY: eventData.scrollY,
-        url: eventData.url,
-        clientX: eventData.clientX,
-        clientY: eventData.clientY
       }));
     }
   };
@@ -112,6 +84,5 @@ export function useWebSocket() {
     currentState,
     authenticate,
     navigate,
-    sendDomEvent,
   };
 }

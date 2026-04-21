@@ -11,24 +11,16 @@ const wss = new WebSocket.Server({ server });
 app.use(cors());
 app.use(express.json());
 
-// Serve static files from client build
 app.use(express.static(path.join(__dirname, '../client/dist')));
 
-// Store connected clients
 const clients = new Set();
 let adminClient = null;
 let currentState = {
   role: null,
   currentPage: 'home',
-  url: null,
   iframeSrc: null,
-  domSnapshot: null,
-  pendingEvents: [],
-  lastScroll: { x: 0, y: 0 },
-  lastUrl: null
 };
 
-// Broadcast state to all viewers
 function broadcastState() {
   const message = JSON.stringify({
     type: 'state_update',
@@ -37,24 +29,6 @@ function broadcastState() {
   
   clients.forEach(client => {
     if (client.readyState === WebSocket.OPEN && client !== adminClient) {
-      client.send(message);
-    }
-  });
-  
-  if (adminClient && adminClient.readyState === WebSocket.OPEN) {
-    adminClient.send(message);
-  }
-}
-
-// Broadcast events to viewers only
-function broadcastEvent(eventData) {
-  const message = JSON.stringify({
-    type: 'event',
-    payload: eventData
-  });
-  
-  clients.forEach(client => {
-    if (client.readyState === WebSocket.OPEN) {
       client.send(message);
     }
   });
@@ -75,27 +49,20 @@ wss.on('connection', (ws) => {
       switch (data.type) {
         case 'set_role':
           if (data.role === 'admin' && data.password === '1234') {
-            if (adminClient && adminClient !== ws && adminClient.readyState === WebSocket.OPEN) {
-              adminClient.send(JSON.stringify({ type: 'role_revoked', reason: 'New admin connected' }));
-              setTimeout(() => {
-                if (adminClient && adminClient.readyState === WebSocket.OPEN) {
-                  adminClient.close();
-                }
-              }, 100);
+            if (adminClient && adminClient !== ws) {
+              adminClient.send(JSON.stringify({ type: 'role_revoked' }));
             }
             adminClient = ws;
             currentState.role = 'admin';
-            currentState.currentPage = 'home';
-            currentState.iframeSrc = null;
-            broadcastState();
             ws.send(JSON.stringify({ type: 'role_accepted', role: 'admin' }));
-            console.log('✅ Admin authenticated');
+            broadcastState();
+            console.log('Admin logged in');
           } else if (data.role === 'viewer') {
             clients.add(ws);
             ws.send(JSON.stringify({ type: 'role_accepted', role: 'viewer' }));
-            console.log('👁️ Viewer connected');
+            console.log('Viewer connected');
           } else if (data.role === 'admin' && data.password !== '1234') {
-            ws.send(JSON.stringify({ type: 'auth_failed', message: 'Invalid password' }));
+            ws.send(JSON.stringify({ type: 'auth_failed' }));
           }
           break;
           
@@ -103,35 +70,13 @@ wss.on('connection', (ws) => {
           if (ws === adminClient) {
             currentState.currentPage = data.page;
             currentState.iframeSrc = data.url;
-            currentState.lastUrl = data.url;
             broadcastState();
-            console.log('📍 Admin navigated to:', data.url);
-          }
-          break;
-          
-        case 'dom_event':
-          if (ws === adminClient) {
-            broadcastEvent({
-              type: data.eventType,
-              target: data.target,
-              value: data.value,
-              scrollX: data.scrollX,
-              scrollY: data.scrollY,
-              url: data.url,
-              timestamp: Date.now()
-            });
-          }
-          break;
-          
-        case 'dom_snapshot':
-          if (ws === adminClient) {
-            currentState.domSnapshot = data.snapshot;
-            broadcastState();
+            console.log('Admin navigated to:', data.url);
           }
           break;
       }
     } catch (error) {
-      console.error('Error processing message:', error);
+      console.error('Error:', error);
     }
   });
   
@@ -156,7 +101,6 @@ app.get('*', (req, res) => {
 
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
-  console.log(`\n🚀 Server running on port ${PORT}`);
-  console.log(`🔌 WebSocket server ready`);
-  console.log(`🔑 Admin password: 1234\n`);
+  console.log(`Server running on port ${PORT}`);
+  console.log(`Admin password: 1234`);
 });
