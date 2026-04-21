@@ -11,16 +11,23 @@ const wss = new WebSocket.Server({ server });
 app.use(cors());
 app.use(express.json());
 
+// Serve static files from client build
 app.use(express.static(path.join(__dirname, '../client/dist')));
 
+// Store connected clients
 const clients = new Set();
 let adminClient = null;
 let currentState = {
   role: null,
   currentPage: 'home',
+  url: null,
   iframeSrc: null,
+  clicks: [],
+  scroll: { x: 0, y: 0 },
+  videoState: null
 };
 
+// Broadcast state to all viewers
 function broadcastState() {
   const message = JSON.stringify({
     type: 'state_update',
@@ -34,9 +41,25 @@ function broadcastState() {
   });
 }
 
+// NEW: Broadcast live events to viewers
+function broadcastLiveEvent(eventData) {
+  const message = JSON.stringify({
+    type: 'live_event',
+    payload: eventData
+  });
+  
+  clients.forEach(client => {
+    if (client.readyState === WebSocket.OPEN) {
+      client.send(message);
+    }
+  });
+}
+
+// WebSocket connection handler
 wss.on('connection', (ws) => {
   console.log('New client connected');
   
+  // Send current state to new client
   ws.send(JSON.stringify({
     type: 'state_update',
     payload: currentState
@@ -49,20 +72,29 @@ wss.on('connection', (ws) => {
       switch (data.type) {
         case 'set_role':
           if (data.role === 'admin' && data.password === '1234') {
-            if (adminClient && adminClient !== ws) {
+            // Remove previous admin if exists
+            if (adminClient && adminClient.readyState === WebSocket.OPEN) {
               adminClient.send(JSON.stringify({ type: 'role_revoked' }));
             }
             adminClient = ws;
             currentState.role = 'admin';
-            ws.send(JSON.stringify({ type: 'role_accepted', role: 'admin' }));
             broadcastState();
-            console.log('Admin logged in');
+            ws.send(JSON.stringify({ type: 'role_accepted', role: 'admin' }));
+            console.log('✅ Admin authenticated');
           } else if (data.role === 'viewer') {
             clients.add(ws);
+            currentState.role = 'viewer';
             ws.send(JSON.stringify({ type: 'role_accepted', role: 'viewer' }));
-            console.log('Viewer connected');
+            console.log('👁️ Viewer connected');
           } else if (data.role === 'admin' && data.password !== '1234') {
             ws.send(JSON.stringify({ type: 'auth_failed' }));
+          }
+          break;
+          
+        case 'action':
+          if (ws === adminClient) {
+            currentState = { ...currentState, ...data.payload };
+            broadcastState();
           }
           break;
           
@@ -71,12 +103,27 @@ wss.on('connection', (ws) => {
             currentState.currentPage = data.page;
             currentState.iframeSrc = data.url;
             broadcastState();
-            console.log('Admin navigated to:', data.url);
+            console.log('📍 Navigated to:', data.url);
+          }
+          break;
+          
+        case 'video_control':
+          if (ws === adminClient) {
+            currentState.videoState = data.state;
+            broadcastState();
+          }
+          break;
+          
+        // NEW: Handle live events from admin
+        case 'live_event':
+          if (ws === adminClient) {
+            broadcastLiveEvent(data.payload);
+            console.log('📡 Live event:', data.payload.type);
           }
           break;
       }
     } catch (error) {
-      console.error('Error:', error);
+      console.error('Error processing message:', error);
     }
   });
   
@@ -84,8 +131,6 @@ wss.on('connection', (ws) => {
     if (ws === adminClient) {
       adminClient = null;
       currentState.role = null;
-      currentState.currentPage = 'home';
-      currentState.iframeSrc = null;
       broadcastState();
       console.log('Admin disconnected');
     } else {
@@ -95,12 +140,14 @@ wss.on('connection', (ws) => {
   });
 });
 
+// Fallback route for SPA
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, '../client/dist/index.html'));
 });
 
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-  console.log(`Admin password: 1234`);
+  console.log(`\n🚀 Server running on port ${PORT}`);
+  console.log(`🔌 WebSocket server ready`);
+  console.log(`🔑 Admin password: 1234\n`);
 });

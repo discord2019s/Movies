@@ -12,6 +12,7 @@ export function useWebSocket() {
     currentPage: 'home',
     iframeSrc: null,
   });
+  const [liveEvents, setLiveEvents] = useState([]);
 
   useEffect(() => {
     const websocket = new WebSocket(WS_URL);
@@ -39,6 +40,9 @@ export function useWebSocket() {
           window.location.reload();
         } else if (data.type === 'auth_failed') {
           alert('Invalid password!');
+        } else if (data.type === 'live_event') {
+          // Store live events for viewers
+          setLiveEvents(prev => [...prev, data.payload]);
         }
       } catch (error) {
         console.error('Error:', error);
@@ -78,11 +82,23 @@ export function useWebSocket() {
     }
   };
 
+  // NEW: Send live events from admin
+  const sendLiveEvent = (eventData) => {
+    if (ws && ws.readyState === WebSocket.OPEN && role === 'admin') {
+      ws.send(JSON.stringify({
+        type: 'live_event',
+        payload: eventData
+      }));
+    }
+  };
+
   return {
     connected,
     role,
     currentState,
+    liveEvents,
     authenticate,
     navigate,
+    sendLiveEvent,
   };
 }
