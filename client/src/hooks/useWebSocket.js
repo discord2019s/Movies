@@ -20,7 +20,7 @@ export function useWebSocket() {
     window.wsConnection = websocket;
 
     websocket.onopen = () => {
-      console.log('Connected to server');
+      console.log('✅ Connected to server');
       setConnected(true);
       setWs(websocket);
     };
@@ -28,6 +28,7 @@ export function useWebSocket() {
     websocket.onmessage = (event) => {
       try {
         const data = JSON.parse(event.data);
+        console.log('📨 Received:', data.type);
         
         if (data.type === 'state_update') {
           setCurrentState(data.payload);
@@ -36,6 +37,7 @@ export function useWebSocket() {
           }
         } else if (data.type === 'role_accepted') {
           setRole(data.role);
+          console.log('🎭 Role accepted:', data.role);
         } else if (data.type === 'role_revoked') {
           setRole(null);
           alert(data.reason || 'Your admin role has been revoked');
@@ -49,7 +51,7 @@ export function useWebSocket() {
     };
 
     websocket.onclose = () => {
-      console.log('Disconnected from server');
+      console.log('❌ Disconnected from server');
       setConnected(false);
       setWs(null);
     };
@@ -67,6 +69,7 @@ export function useWebSocket() {
 
   const authenticate = (roleType, password = null) => {
     if (ws && ws.readyState === WebSocket.OPEN) {
+      console.log('🔐 Authenticating as:', roleType);
       ws.send(JSON.stringify({
         type: 'set_role',
         role: roleType,
@@ -77,6 +80,7 @@ export function useWebSocket() {
 
   const navigate = (page, url = null) => {
     if (ws && ws.readyState === WebSocket.OPEN && role === 'admin') {
+      console.log('🧭 Navigating to:', url);
       ws.send(JSON.stringify({
         type: 'navigate',
         page: page,
@@ -85,9 +89,9 @@ export function useWebSocket() {
     }
   };
 
-  // New: Send DOM events from admin to server
   const sendDomEvent = (eventData) => {
     if (ws && ws.readyState === WebSocket.OPEN && role === 'admin') {
+      console.log('📤 Sending DOM event:', eventData.eventType);
       ws.send(JSON.stringify({
         type: 'dom_event',
         eventType: eventData.eventType,
@@ -95,7 +99,9 @@ export function useWebSocket() {
         value: eventData.value,
         scrollX: eventData.scrollX,
         scrollY: eventData.scrollY,
-        url: eventData.url
+        url: eventData.url,
+        clientX: eventData.clientX,
+        clientY: eventData.clientY
       }));
     }
   };
